@@ -1,0 +1,403 @@
+<html>
+
+Q-1. Deleting the line "PDO::ATTR_STRINGIFY_FETCHES" in the Laravel framework's vendor/laravel/framework/src/Illuminate/Database/Connectors/SqlServerConnector.php file solved the problem.
+
+</br>
+
+Q-2.  5 Time Try  Wrong UserID And Password You have been locked out the system for 60 minutes because of too many login failures.
+
+	Laravel
+	
+	 Controller
+<?php
+		 public function login(Request $request)
+			{
+				$request->validate([
+					'UserID' => 'required',
+					'Password' => 'required'
+				]);
+
+				$ipAddress = $request->ip();
+				$loginAttempt = LoginAttempt::where('IP', $ipAddress)->first();
+				if ($loginAttempt && $loginAttempt->Number >= 5 &&    Carbon::parse($loginAttempt->LastAttempt)->addMinutes(60)->gt(now())) {
+					return back()->withErrors(['email' => 'You have been locked out the system for 60 minutes because of too many login failures.']);
+				}
+				$user = User::where('UserID', $request->UserID)->first();
+				if ($user) {
+					if (Hash::check($request->Password, $user->Password)) {
+						Auth::login($user);
+						if ($loginAttempt) {
+							$loginAttempt->delete();
+						}
+						return redirect()->intended(RouteServiceProvider::HOME);
+					} else {
+						$this->trackLoginAttempt($ipAddress);
+						return back()->withError('Wrong password');
+					}
+				} else {
+					$this->trackLoginAttempt($ipAddress);
+					return back()->withError('User does not exist');
+				}
+			}
+		 
+		  protected function trackLoginAttempt($ipAddress)
+			{
+				$loginAttempt = LoginAttempt::where('IP', $ipAddress)->first();
+				if ($loginAttempt) {
+					if ($loginAttempt->Number < 5) {
+						$loginAttempt->increment('Number');
+					}
+					$loginAttempt->update(['LastAttempt' => now()]);
+				} else {
+					LoginAttempt::create([
+						'IP' => $ipAddress,
+						'Number' => 1,
+						'LastAttempt' => now(),
+					]);
+				}
+			}
+
+
+	Model 
+
+
+	 class LoginAttempt extends Model
+	 {
+		public $timestamps = false;
+		protected $primaryKey = 'IP';
+		protected $table = 'Logins';
+		protected $fillable = ['IP', 'Number', 'LastAttempt'];
+	 }
+
+CodeIgniter
+
+	Controller 
+
+		public function login() {
+
+				$ipAddress = $this->input->ip_address();
+				$loginAttempt = $this->Login_attempt_model->get_attempt($ipAddress);
+
+				$lockoutDuration = 60;
+				$lockoutThreshold = new DateTime('now', new DateTimeZone('Asia/Dhaka'));
+				$lockoutThreshold->modify("-{$lockoutDuration} minutes");
+				if ($loginAttempt) {
+					$lastAttemptTime = new DateTime($loginAttempt['LastAttempt'], new DateTimeZone('Asia/Dhaka'));
+					if ($loginAttempt['Number'] >= 5 && $lastAttemptTime > $lockoutThreshold) {
+						$this->session->set_flashdata('msg', 'You have been locked out of the system for 60 minutes because of too many login failures.');
+						redirect(base_url());
+					}
+				}
+			
+				$userid = $this->input->post('empcode', true);
+				$password = $this->input->post('password', true);
+				$this->load->model('Users_data');
+				$row = $this->Users_data->login($userid, $password);
+			
+				if ($row['success'] == true) {
+					$this->session->set_userdata('userid', $row['UserID']);
+					$this->session->set_userdata('UserName', $row['UserName']);
+					$this->session->set_userdata('Designation', $row['Designation']);
+					$this->session->set_userdata('UserType', $row['UserType']);
+					$this->session->set_userdata('SBUId', $row['SBUId']);
+					$this->session->set_userdata('login', true);
+					$this->session->set_userdata('msg', '');
+					$this->session->set_userdata('msgtype', 'success');
+			
+					if ($loginAttempt) {
+						$this->Login_attempt_model->reset_attempt($ipAddress);
+					}
+			
+					redirect(base_url('home'));
+				} else {
+					if ($loginAttempt) {
+						$this->Login_attempt_model->increment_attempt($ipAddress);
+					} else {
+						$this->Login_attempt_model->create_attempt($ipAddress);
+					}
+					$this->session->set_flashdata('msg', 'UserId or Password Incorrect!');
+					redirect(base_url());
+				}
+			}
+			
+
+	Model 
+
+	class Login_attempt_model extends CI_Model {
+		public function get_attempt($ip) {
+			$sql = "SELECT * FROM Logins WHERE IP = ?";
+			$query = $this->db->query($sql, array($ip));
+			return $query->row_array();
+		}
+
+		public function increment_attempt($ip) {
+			$sql = "UPDATE Logins SET Number = Number + 1, LastAttempt = GETDATE() WHERE IP = ?";
+			$this->db->query($sql, array($ip));
+		}
+		public function reset_attempt($ip) {
+			$sql = "DELETE FROM Logins WHERE IP = ?";
+			$this->db->query($sql, array($ip));
+		}
+
+		public function create_attempt($ip) {
+			$sql = "INSERT INTO Logins (IP, Number, LastAttempt, created_at, updated_at) VALUES (?, 1, ?, ?, ?)";
+			$currentTime = date('Y-m-d H:i:s');
+			$this->db->query($sql, array($ip, $currentTime, $currentTime, $currentTime));
+		}
+	}
+
+?>
+
+
+
+</br>
+
+
+Q-3.Contact Form mail show and mail sent 
+</br>
+
+Form
+
+<form action="{{ route('makebrokeraccreditation') }}" method="post" class="barakah_contact_mail form">
+                                                                       @csrf
+
+                                                                      <div class="row">
+                                                                         <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12 input_single">
+                                                                            <label class="required" style="color:#ffffff;">First Name:</label></p>
+                                                                            <div class="form-row">
+                                                                               <span class="wpcf7-form-control-wrap first_name">
+                                                                                 <input type="text" id="first_name" name="first_name" class="wpcf7-form-control wpcf7-text wpcf7-validates-as-required alpha" />
+                                                                              </span>
+                                                                            </div>
+                                                                         </div>
+                                                                         <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12 input_single">
+                                                                            <label class="required" style="color:#ffffff;">Last Name:</label></p>
+                                                                            <div class="form-row">
+                                                                               <span class="wpcf7-form-control-wrap last_name">
+                                                                                    <input type="text" id="last_name" name="last_name" value="" size="40" class="wpcf7-form-control wpcf7-text wpcf7-validates-as-required alpha" />
+                                                                                 </span>
+                                                                            </div>
+                                                                         </div>
+                                                                         <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12 input_single">
+                                                                            <label class="required" style="color:#ffffff;">Email:</label></p>
+                                                                            <div class="form-row">
+                                                                               <span class="wpcf7-form-control-wrap email">
+                                                                                 <input id="email" type="email" name="email" value="" class="wpcf7-form-control wpcf7-text wpcf7-email wpcf7-validates-as-required wpcf7-validates-as-email" />
+                                                                              </span>
+                                                                            </div>
+                                                                         </div>
+                                                                         <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12 input_single">
+                                                                            <label class="required" style="color:#ffffff;">Phone:</label></p>
+                                                                            <div class="form-row">
+
+                                                                               <span class="wpcf7-form-control-wrap phone">
+                                                                                 <input id="phone" type="tel" name="phone" class="wpcf7-form-control wpcf7-text wpcf7-tel wpcf7-validates-as-required wpcf7-validates-as-tel numeric" />
+                                                                              </span>
+                                                                            </div>
+                                                                         </div>
+                                                                         <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 input_single">
+                                                                            <label class="required" style="color:#ffffff;">Product Interested in:</label></p>
+                                                                            <div class="form-row">
+                                                                               <span class="wpcf7-form-control-wrap product-interest">
+                                                                                  <select required="" name="product_interest" class="wpcf7-form-control wpcf7-select wpcf7-validates-as-required" aria-required="true" aria-invalid="false">
+                                                                                      <option value="">Select</option>
+                                                                                     <option value="First Home Buyer">First Home Buyer</option>
+                                                                                     <option value="Investment in Property">Investment in Property</option>
+                                                                                     <option value="Refinance to Islamic Loan">Refinance to Islamic Loan</option>
+                                                                                  </select>
+                                                                               </span>
+                                                                            </div>
+                                                                         </div>
+                                                                         <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12 input_single">
+                                                                            <label class="required" style="color:#ffffff;">Location:</label></p>
+                                                                            <div class="form-row">
+                                                                               <span class="wpcf7-form-control-wrap location">
+                                                                                  <select required="" name="location" class="wpcf7-form-control wpcf7-select wpcf7-validates-as-required" aria-required="true" aria-invalid="false">
+                                                                                      <option value="">Select</option>
+                                                                                     <option value="NSW">NSW</option>
+                                                                                     <option value="ACT">ACT</option>
+                                                                                     <option value="VIC">VIC</option>
+                                                                                     <option value="QLD">QLD</option>
+                                                                                     <option value="NT">NT</option>
+                                                                                     <option value="WA">WA</option>
+                                                                                     <option value="SA">SA</option>
+                                                                                     <option value="Other">TAS</option>
+                                                                                  </select>
+                                                                               </span>
+                                                                            </div>
+                                                                         </div>
+                                                                         <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12 input_single">
+                                                                            <label class="required" style="color:#ffffff;">How did you hear about us?</label></p>
+                                                                            <div class="form-row">
+                                                                               <span class="wpcf7-form-control-wrap hdyhau">
+                                                                                  <select required="" name="hdyhau" class="wpcf7-form-control wpcf7-select wpcf7-validates-as-required" aria-required="true" aria-invalid="false">
+                                                                                      <option value="">Select</option>
+                                                                                     <option value="Facebook">Facebook</option>
+                                                                                     <option value="Google/Bing">Google/Bing</option>
+                                                                                     <option value="Word of Mouth">Word of Mouth</option>
+                                                                                     <option value="Online advertisement">Online advertisement</option>
+                                                                                     <option value="Other">Other</option>
+                                                                                  </select>
+                                                                               </span>
+                                                                            </div>
+                                                                         </div>
+                                                                         <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 input_single">
+                                                                            <label class="required" style="color:#ffffff;">Message:</label></p>
+                                                                            <div class="form-row">
+                                                                                <span class="wpcf7-form-control-wrap message">
+                                                                                 <textarea id="message" name="message" cols="40" rows="10" class="wpcf7-form-control wpcf7-textarea" aria-invalid="false"></textarea>
+                                                                                 </span>
+                                                                            </div>
+                                                                         </div>
+                                                                         <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 input_single">
+                                                                                <div class="spinner flash">
+                                                                                 <div class="rect1"></div>
+                                                                                 <div class="rect2"></div>
+                                                                                 <div class="rect3"></div>
+                                                                                 <div class="rect4"></div>
+                                                                                 <div class="rect5"></div>
+                                                                              </div>
+
+                                                                                         <div id="contact_error"></div>
+                                                                              <div class="form-row last button text-center">
+                                                                       <input type="submit" value="SUBMIT" class="submit_btn wpcf7-form-control custom-btn-submit" />
+                                                                              </div>
+                                                                         </div>
+                                                                      </div>
+
+    </form>
+
+
+
+Controller
+
+<?php
+public function brokeraccreditation()
+    {
+        $actual_link = "https://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+
+        SEOMeta::setTitle('Broker Accreditation');
+        SEOMeta::setDescription('You’re not allowed to lend or take money from someone under Sharia law if interest is being gained. They do not involve the same lending or borrowing that traditional mortgage do. Islamic lender buys the property on your behalf. You then make weekly, fortnightly or monthly payments. But instead of interest, these payments are like rent.');
+        SEOMeta::addMeta('article:image', asset('storage/Banner.jpg'), 'property');
+        SEOMeta::setCanonical('https://barakahfinance.com.au/');
+        SEOMeta::setCanonical($actual_link);
+
+        OpenGraph::setTitle('Home Finance Calculator');
+        OpenGraph::setDescription('You’re not allowed to lend or take money from someone under Sharia law if interest is being gained. They do not involve the same lending or borrowing that traditional mortgage do. Islamic lender buys the property on your behalf. You then make weekly, fortnightly or monthly payments. But instead of interest, these payments are like rent.');
+        OpenGraph::setUrl('https://barakahfinance.com.au/');
+        OpenGraph::addProperty('type', 'articles');
+        OpenGraph::addProperty('image', asset('storage/Banner.jpg'));
+
+        TwitterCard::setTitle('Broker Accreditation');
+
+        JsonLd::setTitle('Broker Accreditation');
+        JsonLd::setDescription('You’re not allowed to lend or take money from someone under Sharia law if interest is being gained. They do not involve the same lending or borrowing that traditional mortgage do. Islamic lender buys the property on your behalf. You then make weekly, fortnightly or monthly payments. But instead of interest, these payments are like rent.');
+        JsonLd::addImage(asset('storage/Banner.jpg'));
+
+        $data = array();
+        return view('frontend.brokeraccreditation', $data);
+    }
+
+ public function  makeBrokeraccreditation(ContactRequest $request)
+    {
+        $settings = getSettings();
+        $data['contact'] = $request;
+        $data['settings'] = $settings;
+        $data['body'] = view('frontend.mail.contactMail', $data);
+        $data['customerbody'] = view('frontend.mail.customercontactMail', $data);
+
+        $contact = new Contact();
+        $contact->first_name = $request->first_name;
+        $contact->last_name = $request->last_name;
+        $contact->email = $request->email;
+        $contact->phone = $request->phone;
+        $contact->product_interest = $request->product_interest;
+        $contact->location = $request->location;
+        $contact->message = $request->message;
+        $contact->save();
+
+        Mail::send('frontend.mail.mailBody', $data, function ($message) use ($data) {
+
+            $message->to('info@barakahfinance.com.au','');
+            $message->cc('kajolen@gmail.com', '');
+            $message->subject('Contact Mail ' . $data['contact']->first_name . ' ' . $data['contact']->last_name);
+            $message->from('no-reply@barakahfinance.com.au', $data['settings']['title']);
+        });
+
+        Mail::send('frontend.mail.customermailBody', $data, function ($message) use ($data) {
+
+            $message->to($data['contact']->email, $data['contact']->first_name.' '. $data['contact']->last_name);
+            $message->subject('Contact Mail ' . 'Barakah' . ' ' . 'Finance');
+            $message->from('no-reply@barakahfinance.com.au', $data['settings']['title']);
+        });
+
+
+        Mail::send('frontend.mail.mailBody', $data, function ($message) use ($data) {
+
+            $message->to('info@barakahfinance.com.au','');
+          
+            $message->cc('rifatah95@gmail.com', '');
+            $message->subject('Contact Mail ' . $data['contact']->first_name . ' ' . $data['contact']->last_name);
+            $message->from('no-reply@barakahfinance.com.au', $data['settings']['title']);
+        });
+        $returnData = array(
+            'st' => 1,
+            'msg' => '<div class="alert alert-success">' . $settings['contact_message'] . '</div>'
+        );
+        //dd($returnData);
+        return $returnData;
+    }
+
+
+
+?>
+
+
+</br>
+Q-4.  mpdf bangla unicode converter
+</br>
+<?php
+Run this composer command in your laravel application
+     composer require carlos-meneses/laravel-mpdf
+ config/app.php
+     'providers' => [
+    // ...
+    Mccarlosen\LaravelMpdf\LaravelMpdfServiceProvider::class
+]
+    'aliases' => [
+    // ...
+    'PDF' => Mccarlosen\LaravelMpdf\Facades\LaravelMpdf::class
+]
+https://www.omicronlab.com/bangla-fonts.html
+Download Bangla Font  :  Nikosh
+Nikosh  font paste  = vendor\mpdf\mpdf\ttfonts  
+
+vendor\mpdf\mpdf\src\Config\ FontVariables.php
+
+/* Indic */
+                "nikosh" => [
+                    'R' => "Nikosh.ttf",
+                    'useOTL' => 0xFF,
+                ],
+
+
+Route::get('pdf', 'App\Http\Controllers\PdfController@pdf');
+Controller
+public function pdf()
+    {
+        $mpdf = new \Mpdf\Mpdf([
+            'default_font_size' => 12,
+            'default_font' => 'nikosh'
+        ]);
+        $mpdf->WriteHTML($this->pdfHTML());
+        $mpdf->Output();
+    }
+    public function pdfHTML()
+    {
+        $output = "বাংলাদেশসহ বিশ্বের সর্বশেষ সংবাদ শিরোনাম, প্রতিবেদন, বিশ্লেষণ, খেলা, বিনোদন, চাকরি, রাজনীতি ও বাণিজ্যের বাংলা নিউজ Hello bangladesh";
+        return $output;
+
+    }
+
+
+
